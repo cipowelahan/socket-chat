@@ -69,6 +69,26 @@
             socket.emit('getMessages', data)
         }
 
+        function notifyMe(head, body) {
+            if (!("Notification" in window)) {
+                alert("This browser does not support desktop notification");
+            }
+            else if (Notification.permission === "granted") {
+                var notification = new Notification(head, {
+                    body
+                });
+            }
+            else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(function (permission) {
+                    if (permission === "granted") {
+                        var notification = new Notification(head, {
+                            body
+                        });
+                    }
+                });
+            }
+        }
+
         $(function() {
             socket = io()
 
@@ -105,7 +125,9 @@
             })
 
             socket.on('getUsers', function() {
-                socket.emit('getUsers', user.id)
+                if (typeof user !== 'undefined') {
+                    socket.emit('getUsers', user.id)
+                }
             })
 
             socket.on('users', function(data) {
@@ -132,6 +154,18 @@
                         </tr>
                     `)
                 })
+            })
+
+            socket.on('notif', function(data) {
+                if (data.user_id != user.id) {
+                    notifyMe(data.head, data.body)
+                }
+            })
+
+            socket.on('joinRoom', function(data) {
+                if (data.user_id == user.id) {
+                    socket.emit('joinRoom', data)
+                }
             })
         })
     </script>

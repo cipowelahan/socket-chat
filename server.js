@@ -202,7 +202,7 @@ io.on('connection', socket => {
                 type: 'private'
             })
 
-            selectedRoomId = newRoom.toJSON().id
+            selectedRoomId = newRoom.id
             for (const id of [userId, otherId]) {
                 await RoomUser.create({
                     room_id: selectedRoomId,
@@ -211,11 +211,11 @@ io.on('connection', socket => {
             }
             
         } else {
-            selectedRoomId = room.toJSON().id
+            selectedRoomId = room.id
         }
         
         socket.join(`room:${selectedRoomId}`)
-        
+
         const messages = await RoomMessage.findAll({
             include: {
                 model: User,
@@ -244,21 +244,48 @@ io.on('connection', socket => {
             }
         })
 
+        const user = await User.findOne({
+            where: {
+                id: user_id
+            }
+        })
+
+        const notif = {
+            user_id,
+            head: user.username,
+            body: message
+        }
+
         io.to(`room:${room_id}`).emit('getMessages', { room_id: room_id, messages })
+        io.to(`room:${room_id}`).emit('notif', notif)
+
+        const users = await RoomUser.findAll({
+            where: {
+                room_id: room_id,
+                user_id: {
+                    [Op.ne]: user_id
+                }
+            }
+        })
+
+        for (const userjoin of users) {
+            socket.broadcast.emit('joinRoom', {
+                room_id,
+                user_id: userjoin.user_id,
+                notif
+            })
+        }
+
     })
 
-    // socket.on('join_room', (data) => {
-    //     socket.rooms.clear()
-    //     socket.rooms.add(socket.id)
-    //     socket.join(data)
-    //     console.log(socket.rooms)
-    // })
+    socket.on('joinRoom', (data) => {
+        const { room_id, notif } = data
+        if(!socket.rooms.has(`room:${room_id}`)) {
+            socket.join(`room:${room_id}`)
+            io.to(`room:${room_id}`).emit('notif', notif)
+        }
+    })
 
-    // socket.on('message', (data) => {
-    //     console.log(data)
-    //     const { room, message } = data
-    //     io.to(room).emit('message', message)
-    // })
 })
 
 server.listen(port, '0.0.0.0', () => {
