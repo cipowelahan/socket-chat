@@ -183,18 +183,35 @@ io.on('connection', socket => {
         const { userId, otherId } = data
         let selectedRoomId = null
 
-        const room = await Room.findOne({
+        const roomOther = await Room.findAll({
             include: {
                 model: RoomUser,
                 as: 'users',
                 where: {
-                    user_id: {
-                        [Op.ne]: userId,
-                        [Op.eq]: otherId
-                    }
+                    user_id: otherId
                 }
             }
         })
+
+        let room = null
+        if (roomOther.length !== 0) {
+            const roomOtherIds = roomOther.map(m => m.id)
+            room = await Room.findOne({
+                include: {
+                    model: RoomUser,
+                    as: 'users',
+                    where: {
+                        user_id: userId
+                    }
+                },
+                where: {
+                    id: {
+                        [Op.in]: roomOtherIds
+                    }
+                }
+            })
+
+        }
 
         if (room === null) {
             const newRoom = await Room.create({
