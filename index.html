@@ -24,13 +24,15 @@
             </div>
         </div>
         <div class="row" id="row-message" style="display: none;">
-            <div class="col-sm-4">
+            <div class="col-sm-3">
                 Login Sebagai <strong id="head-username"></strong>
                 <hr>
                 <ul class="list-group">
                 </ul>
             </div>
-            <div class="col-sm-8" id="messages" style="display: none;">
+            <div class="col-sm-9" id="messages" style="display: none;">
+                Chat dengan <strong id="chat-username"></strong>
+                <hr>
                 <div class="card">
                     <div class="card-body">
                         <table class="table" style="width: 100%;">
@@ -62,12 +64,13 @@
         var username, user, users, room, messages
         var socket
 
-        function selectUser(userId) {
+        function selectUser(userId, username) {
             var data = {
                 userId: user.id,
                 otherId: userId
             }
 
+            $('#chat-username').text(username)
             socket.emit('getMessages', data)
         }
 
@@ -139,7 +142,7 @@
                 $('.list-group').empty()
                 Array.from(users).forEach(function(user) {
                     $('.list-group').append(`
-                        <li class="list-group-item"><a href="#" onclick="selectUser(${user.id})">${user.username}</a></li>
+                        <li class="list-group-item"><a href="#" onclick="selectUser(${user.id}, '${user.username}')">${user.username}</a></li>
                     `)
                 })
             })
