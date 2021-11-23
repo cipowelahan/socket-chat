@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+</head>
+<body>
+    <div class="container-fluid">
+        <br>
+        <div class="row" id="row-username" style="display: none;">
+            <div class="col-sm-12">
+                <form action="" id="form-username">
+                    <div class="mb-3">
+                        <input id="username" type="text" placeholder="username" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+            </div>
+        </div>
+        <div class="row" id="row-message" style="display: none;">
+            <div class="col-sm-4">
+                <ul class="list-group">
+                </ul>
+            </div>
+            <div class="col-sm-8" id="messages" style="display: none;">
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table" style="width: 100%;">
+                            <tbody id="body-message">
+                            </tbody>
+                        </table>
+                        <form action="" id="form-message">
+                            <div class="mb-3">
+                                <textarea class="form-control" id="message" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Kirim</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.socket.io/4.4.0/socket.io.min.js"
+        integrity="sha384-1fOn6VtTq3PWwfsOrk45LnYcGosJwzMHv+Xh/Jx5303FVOXzEnw0EpLv30mtjmlj"
+        crossorigin="anonymous"></script>
+
+    <script>
+        var username, user, users, room, messages
+        var socket
+
+        function selectUser(userId) {
+            var data = {
+                userId: user.id,
+                otherId: userId
+            }
+
+            socket.emit('getMessages', data)
+        }
+
+        $(function() {
+            socket = io()
+
+            $('#row-username').show()
+
+            $('#form-username').submit(function(e) {
+                e.preventDefault()
+                username = $('#username').val()
+                $('#row-username').hide()
+                $('#row-message').show()
+
+                socket.emit('login', username)
+            })
+
+            $('#form-message').submit(function(e) {
+                e.preventDefault()
+
+                var data = {
+                    room_id: room,
+                    user_id: user.id,
+                    message: $('#message').val()
+                }
+
+                socket.emit('sendMessage', data)
+                $('#message').val('')
+            })
+
+            socket.on('connect', () => {
+                console.log('socket connection id' + socket.id)
+            })
+
+            socket.on('login', function(data) {
+                user = data
+            })
+
+            socket.on('getUsers', function() {
+                socket.emit('getUsers', user.id)
+            })
+
+            socket.on('users', function(data) {
+                users = data
+
+                $('.list-group').empty()
+                Array.from(users).forEach(function(user) {
+                    $('.list-group').append(`
+                        <li class="list-group-item"><a href="#" onclick="selectUser(${user.id})">${user.username}</a></li>
+                    `)
+                })
+            })
+
+            socket.on('getMessages', function(data) {
+                $('#body-message').empty()
+                room = data.room_id
+                messages = data.messages
+                $('#messages').show()
+
+                Array.from(messages).forEach(function(message) {
+                    $('#body-message').append(`
+                        <tr>
+                            <td ${message.user_id === user.id ? 'class="text-end"':''}>${message.message}</td>
+                        </tr>
+                    `)
+                })
+            })
+        })
+    </script>
+</body>
+</html>
