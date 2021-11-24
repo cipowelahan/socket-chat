@@ -142,9 +142,19 @@
                 $('.list-group').empty()
                 Array.from(users).forEach(function(user) {
                     $('.list-group').append(`
-                        <li class="list-group-item"><a href="#" onclick="selectUser(${user.id}, '${user.username}')">${user.username}</a></li>
+                        <li class="list-group-item"><a href="#" onclick="selectUser(${user.id}, '${user.username}')">${user.username}</a> (<span id="online-status-${user.id}" style="color: red">offline</span>)</li>
                     `)
                 })
+            })
+
+            socket.on('checkOnlineStatus', function() {
+                if (typeof user !== 'undefined') {
+                    socket.emit('updateOnlineStatus', { id: user.id, status: 1 })
+                }
+            })
+
+            socket.on('updateOnlineStatus', function(data) {
+                $(`#online-status-${data.id}`).css('color', data.status === 1 ? 'green' : 'red').text(data.status === 1 ? 'online' : 'offline')
             })
 
             socket.on('getMessages', function(data) {

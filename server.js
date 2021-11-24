@@ -142,6 +142,7 @@ app.get('/', ({ res }) => {
 
 io.on('connection', socket => {
     console.log('new connection from ' + socket.id)
+    socket.broadcast.emit('checkOnlineStatus')
 
     socket.on('login', async (username) => {
         const checkUser = await User.findOrCreate({ where: {
@@ -177,6 +178,7 @@ io.on('connection', socket => {
         })
 
         io.to(socket.id).emit('users', users)
+        socket.broadcast.emit('checkOnlineStatus')
     })
 
     socket.on('getMessages', async (data) => {
@@ -301,6 +303,15 @@ io.on('connection', socket => {
             socket.join(`room:${room_id}`)
             io.to(`room:${room_id}`).emit('notif', notif)
         }
+    })
+
+    socket.on('updateOnlineStatus', (data) => {
+        io.emit('updateOnlineStatus', data)
+    })
+
+    socket.on('disconnect', () => { 
+        console.log(socket.id + ' disconnected')
+        socket.broadcast.emit('getUsers')
     })
 
 })
