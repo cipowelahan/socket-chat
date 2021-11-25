@@ -107,6 +107,10 @@ const RoomMessage = sequelize.define('roomMessage', {
         type: DataTypes.BIGINT,
         allowNull: false
     },
+    type: {
+        type: DataTypes.STRING,
+        defaultValue: 'text'
+    },
     message: {
         type: DataTypes.TEXT
     }
@@ -144,7 +148,7 @@ io.on('connection', socket => {
     console.log('new connection from ' + socket.id)
     socket.broadcast.emit('checkOnlineStatus')
 
-    socket.on('login', async (username) => {
+    socket.on('login', async ({ username }) => {
         const checkUser = await User.findOrCreate({ where: {
             username: username
         }})
@@ -168,11 +172,11 @@ io.on('connection', socket => {
         io.emit('getUsers')
     })
 
-    socket.on('getUsers', async (data) => {
+    socket.on('getUsers', async ({ user_id }) => {
         const users = await User.findAll({
             where: {
                 id: {
-                    [Op.ne]: data
+                    [Op.ne]: user_id
                 }
             }
         })
@@ -181,8 +185,7 @@ io.on('connection', socket => {
         socket.broadcast.emit('checkOnlineStatus')
     })
 
-    socket.on('getMessages', async (data) => {
-        const { userId, otherId } = data
+    socket.on('getMessages', async ({ userId, otherId }) => {
         let selectedRoomId = null
 
         const roomOther = await Room.findAll({
@@ -249,8 +252,7 @@ io.on('connection', socket => {
 
     })
 
-    socket.on('sendMessage', async (data) => {
-        const { room_id, user_id, message } = data
+    socket.on('sendMessage', async ({ room_id, user_id, message }) => {
         await RoomMessage.create({ room_id, user_id, message })
 
         const messages = await RoomMessage.findAll({
@@ -297,8 +299,58 @@ io.on('connection', socket => {
 
     })
 
-    socket.on('joinRoom', (data) => {
-        const { room_id, notif } = data
+    socket.on('sendFile', async ({ room_id, user_id, file }) => {
+        await RoomMessage.create({ 
+            room_id, 
+            user_id, 
+            type: 'file',
+            message: file.toString('base64')
+        })
+
+        const messages = await RoomMessage.findAll({
+            include: {
+                model: User,
+                as: 'user'
+            },
+            where: {
+                room_id: room_id
+            }
+        })
+
+        const user = await User.findOne({
+            where: {
+                id: user_id
+            }
+        })
+
+        const notif = {
+            user_id,
+            head: user.username,
+            body: "gambar"
+        }
+
+        io.to(`room:${room_id}`).emit('getMessages', { room_id: room_id, messages })
+        io.to(`room:${room_id}`).emit('notif', notif)
+
+        const users = await RoomUser.findAll({
+            where: {
+                room_id: room_id,
+                user_id: {
+                    [Op.ne]: user_id
+                }
+            }
+        })
+
+        for (const userjoin of users) {
+            socket.broadcast.emit('joinRoom', {
+                room_id,
+                user_id: userjoin.user_id,
+                notif
+            })
+        }
+    })
+
+    socket.on('joinRoom', ({ room_id, notif }) => {
         if(!socket.rooms.has(`room:${room_id}`)) {
             socket.join(`room:${room_id}`)
             io.to(`room:${room_id}`).emit('notif', notif)

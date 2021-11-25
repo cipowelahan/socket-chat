@@ -43,6 +43,9 @@
                             <div class="mb-3">
                                 <textarea class="form-control" id="message" required></textarea>
                             </div>
+                            <div class="mb-3">
+                                <input type="file" id="file" class="form-control" accept="image/*">
+                            </div>
                             <button type="submit" class="btn btn-primary">Kirim</button>
                         </form>
                     </div>
@@ -106,7 +109,7 @@
                 $('#row-username').hide()
                 $('#row-message').show()
 
-                socket.emit('login', username)
+                socket.emit('login', { username })
             })
 
             $('#form-message').submit(function(e) {
@@ -122,22 +125,32 @@
                 $('#message').val('')
             })
 
+            $('#file').on('change', function(e) {
+                var data = {
+                    room_id: room,
+                    user_id: user.id,
+                    file: e.target.files[0]
+                }
+                socket.emit('sendFile', data)
+                $(this).val(null)
+            })
+
             socket.on('connect', () => {
                 console.log('socket connection id' + socket.id)
             })
 
-            socket.on('login', function(data) {
-                user = data
+            socket.on('login', function(dataUser) {
+                user = dataUser
             })
 
             socket.on('getUsers', function() {
                 if (typeof user !== 'undefined') {
-                    socket.emit('getUsers', user.id)
+                    socket.emit('getUsers', { user_id: user.id })
                 }
             })
 
-            socket.on('users', function(data) {
-                users = data
+            socket.on('users', function(dataUsers) {
+                users = dataUsers
 
                 $('.list-group').empty()
                 Array.from(users).forEach(function(user) {
@@ -166,7 +179,12 @@
                 Array.from(messages).forEach(function(message) {
                     $('#body-message').append(`
                         <tr>
-                            <td ${message.user_id === user.id ? 'class="text-end"':''}>${message.message}</td>
+                            <td ${message.user_id === user.id ? 'class="text-end"':''}>${message.type == 'file' ?
+                                `<img src="data:image/jpeg;base64,${message.message}">`
+                                :
+                                message.message
+                            }
+                            </td>
                         </tr>
                     `)
                 })
