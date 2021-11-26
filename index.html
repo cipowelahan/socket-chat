@@ -44,7 +44,7 @@
                                 <textarea class="form-control" id="message" required></textarea>
                             </div>
                             <div class="mb-3">
-                                <input type="file" id="file" class="form-control" accept="image/*">
+                                <input type="file" id="file" class="form-control" multiple>
                             </div>
                             <button type="submit" class="btn btn-primary">Kirim</button>
                         </form>
@@ -126,12 +126,39 @@
             })
 
             $('#file').on('change', function(e) {
-                var data = {
-                    room_id: room,
-                    user_id: user.id,
-                    file: e.target.files[0]
+                let valid =  true
+                let files = e.target.files
+                let dataFiles = []
+
+                for (let i = 0; i < files.length; i++) {
+                    let fileSize = Math.round(files[i].size / (1024));
+
+                    if (fileSize > 1024) {
+                        valid = false
+                        alert('maks file 1 MB')
+                        break
+                    }
+
+                    let [ typeFile, extensionFile ] = files[i].type.split('/')
+
+                    dataFiles.push({
+                        name: files[i].name,
+                        typeFile,
+                        extensionFile,
+                        file: files[i] 
+                    })
                 }
-                socket.emit('sendFile', data)
+
+                if (valid) {
+                    var data = {
+                        room_id: room,
+                        user_id: user.id,
+                        files: dataFiles
+                    }
+    
+                    socket.emit('sendFile', data)
+                }
+
                 $(this).val(null)
             })
 
@@ -177,16 +204,21 @@
                 $('#messages').show()
 
                 Array.from(messages).forEach(function(message) {
-                    $('#body-message').append(`
-                        <tr>
-                            <td ${message.user_id === user.id ? 'class="text-end"':''}>${message.type == 'file' ?
-                                `<img src="data:image/jpeg;base64,${message.message}">`
-                                :
-                                message.message
-                            }
-                            </td>
-                        </tr>
-                    `)
+                    let htmlMessage = '<tr>'
+                    htmlMessage += `<td ${message.user_id === user.id ? 'class="text-end"':''}>`
+                    if (message.type === 'file') {
+                        if (message.file.type === 'image') {
+                            htmlMessage += `<img class="img-thumbnail" src="${message.file.path}" alt="${message.file.name}">`
+                        } else {
+                            htmlMessage += `<a href="${message.file.path}">${message.file.name}</a>`
+                        }
+                    } else {
+                        htmlMessage += message.message
+                    }
+                    htmlMessage += `<br><span class="small" style="color: grey;">${new Date(message.createdAt).toString()}</span>`
+                    htmlMessage += '</td>'
+                    htmlMessage += '</tr>'
+                    $('#body-message').append(htmlMessage)
                 })
             })
 

@@ -1,6 +1,9 @@
-const app = require('express')()
+const express = require('express')
+const app = express()
 const server = require('http').createServer(app)
 const { Server } = require('socket.io')
+const path = require('path')
+const fs = require('fs')
 const io = new Server(server)
 const port = process.env.PORT || 3000
 const { Sequelize, DataTypes, Op } = require('sequelize')
@@ -31,7 +34,7 @@ const User = sequelize.define('user', {
         }
     ]
 })
-User.sync({ alter: true, logging: false })
+User.sync({ logging: false })
     .then(() => {
         console.log('user created successfully')
     })
@@ -56,7 +59,7 @@ const Room = sequelize.define('room', {
 }, {
     tableName: 'rooms'
 })
-Room.sync({ alter: true, logging: false })
+Room.sync({ logging: false })
     .then(() => {
         console.log('room created successfully')
     })
@@ -83,7 +86,7 @@ const RoomUser = sequelize.define('roomUser', {
 }, {
     tableName: 'room_users'
 })
-RoomUser.sync({ alter: true, logging: false })
+RoomUser.sync({ logging: false })
     .then(() => {
         console.log('roomUser created successfully')
     })
@@ -112,17 +115,49 @@ const RoomMessage = sequelize.define('roomMessage', {
         defaultValue: 'text'
     },
     message: {
-        type: DataTypes.TEXT
+        type: DataTypes.TEXT,
     }
 }, {
     tableName: 'room_messages'
 })
-RoomMessage.sync({ alter: true, logging: false })
+RoomMessage.sync({ logging: false })
     .then(() => {
         console.log('roomMessage created successfully')
     })
     .catch((err) => {
         console.log('failed create roomMessage')
+        console.log(err)
+    })
+
+const RoomMessageFile = sequelize.define('roomMessageFile', {
+    id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true,
+        allowNull: false
+    },
+    message_id: {
+        type: DataTypes.BIGINT,
+        allowNull: false
+    },
+    name: {
+        type: DataTypes.STRING
+    },
+    path: {
+        type: DataTypes.TEXT
+    },
+    type: {
+        type: DataTypes.STRING
+    }
+}, {
+    tableName: 'room_message_files'
+})
+RoomMessageFile.sync({ logging: false })
+    .then(() => {
+        console.log('roomMessageFile created successfully')
+    })
+    .catch((err) => {
+        console.log('failed create roomMessageFile')
         console.log(err)
     })
 
@@ -138,8 +173,12 @@ RoomMessage.belongsTo(User, {
     as: 'user',
     foreignKey: 'user_id'
 })
+RoomMessage.hasOne(RoomMessageFile, {
+    as: 'file',
+    foreignKey: 'message_id'
+})
 
-
+app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', ({ res }) => {
     res.sendFile(__dirname + '/index.html')
 })
@@ -239,10 +278,16 @@ io.on('connection', socket => {
         socket.join(`room:${selectedRoomId}`)
 
         const messages = await RoomMessage.findAll({
-            include: {
-                model: User,
-                as: 'user'
-            },
+            include: [
+                {
+                    model: User,
+                    as: 'user'
+                },
+                {
+                    model: RoomMessageFile,
+                    as: 'file'
+                }
+            ],
             where: {
                 room_id: selectedRoomId
             }
@@ -299,19 +344,38 @@ io.on('connection', socket => {
 
     })
 
-    socket.on('sendFile', async ({ room_id, user_id, file }) => {
-        await RoomMessage.create({ 
-            room_id, 
-            user_id, 
-            type: 'file',
-            message: file.toString('base64')
-        })
+    socket.on('sendFile', async ({ room_id, user_id, files }) => {
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i]
+            let fileName = `${new Date().getTime()}-${file.name.split(' ').join('_')}`
+
+            fs.writeFileSync(`public/${fileName}`, file.file)
+            const message = await RoomMessage.create({ 
+                room_id, 
+                user_id, 
+                type: 'file',
+            })
+
+            await RoomMessageFile.create({
+                message_id: message.id,
+                name: file.name,
+                path: fileName,
+                type: file.typeFile
+            })
+        }
+
 
         const messages = await RoomMessage.findAll({
-            include: {
-                model: User,
-                as: 'user'
-            },
+            include: [
+                {
+                    model: User,
+                    as: 'user'
+                },
+                {
+                    model: RoomMessageFile,
+                    as: 'file'
+                }
+            ],
             where: {
                 room_id: room_id
             }
