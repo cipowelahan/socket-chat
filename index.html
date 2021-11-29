@@ -41,13 +41,22 @@
                         </table>
                         <form action="" id="form-message">
                             <div class="mb-3">
-                                <textarea class="form-control" id="message" required></textarea>
-                            </div>
-                            <div class="mb-3">
                                 <input type="file" id="file" class="form-control" multiple>
                             </div>
-                            <button type="submit" class="btn btn-primary">Kirim</button>
+                            <div class="mb-3">
+                                <textarea class="form-control" rows="2" id="message" required></textarea>
+                            </div>
                         </form>
+                        <div id="file-uploading" style="display: none;">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                Uploading
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -64,8 +73,9 @@
         crossorigin="anonymous"></script>
 
     <script>
-        var username, user, users, room, messages
+        var username, user, users, room, messages, files, file
         var socket
+        var indexFile = 0
 
         function selectUser(userId, username) {
             var data = {
@@ -75,6 +85,33 @@
 
             $('#chat-username').text(username)
             socket.emit('getMessages', data)
+        }
+
+        function setFile() {
+            file = files[indexFile]
+
+            let [typeFile, extensionFile] = file.type.split('/')
+            let data = {
+                room_id: room,
+                user_id: user.id,
+                indexFile,
+                name: file.name,
+                type: typeFile,
+                totalSize: file.size
+            }
+
+            console.log('START UPLOAD: ', data)
+            socket.emit('file:create', data)
+        }
+
+        function uploading(bool) {
+            if (bool) {
+                $('#form-message').hide()
+                $('#file-uploading').show()
+            } else {
+                $('#form-message').show()
+                $('#file-uploading').hide()
+            }
         }
 
         function notifyMe(head, body) {
@@ -112,6 +149,12 @@
                 socket.emit('login', { username })
             })
 
+            $('#message').on('keyup', function(e) {
+                if (e.which == 13) {
+                    $('#form-message').submit()
+                }
+            })
+
             $('#form-message').submit(function(e) {
                 e.preventDefault()
 
@@ -126,40 +169,10 @@
             })
 
             $('#file').on('change', function(e) {
-                let valid =  true
-                let files = e.target.files
-                let dataFiles = []
-
-                for (let i = 0; i < files.length; i++) {
-                    let fileSize = Math.round(files[i].size / (1024));
-
-                    if (fileSize > 1024) {
-                        valid = false
-                        alert('maks file 1 MB')
-                        break
-                    }
-
-                    let [ typeFile, extensionFile ] = files[i].type.split('/')
-
-                    dataFiles.push({
-                        name: files[i].name,
-                        typeFile,
-                        extensionFile,
-                        file: files[i] 
-                    })
-                }
-
-                if (valid) {
-                    var data = {
-                        room_id: room,
-                        user_id: user.id,
-                        files: dataFiles
-                    }
-    
-                    socket.emit('sendFile', data)
-                }
-
-                $(this).val(null)
+                uploading(true)
+                indexFile = 0
+                files = e.target.files
+                setFile()
             })
 
             socket.on('connect', () => {
@@ -233,6 +246,38 @@
                     socket.emit('joinRoom', data)
                 }
             })
+
+            // File Upload
+            socket.on('file:resume', function (data) {
+                data['buff'] = file.slice(data.startWrote, data.endWrote)
+                socket.emit('file:resume', data)
+            })
+
+            socket.on('file:process', function(data) {
+                console.log(`${data.sizeWrote} / ${data.totalSize}`)
+            })
+
+            socket.on('file:finish', function(data) {
+                console.log('UPLOAD FINISHED: ', data)
+                socket.emit('file:finish', data)
+                
+                if (indexFile < files.length - 1) {
+                    indexFile++
+                    setFile()
+                } else {
+                    files = null
+                    $('#file').val(null)
+                    uploading(false)
+                }
+            })
+
+            socket.on('file:error', function(data) {
+                console.log('ERROR UPLOAD ON: ', data)
+                files = null
+                $('#file').val(null)
+                uploading(false)
+            })
+            // End File Upload
         })
     </script>
 </body>

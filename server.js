@@ -183,6 +183,8 @@ app.get('/', ({ res }) => {
     res.sendFile(__dirname + '/index.html')
 })
 
+const chunkSize = 10240
+
 io.on('connection', socket => {
     console.log('new connection from ' + socket.id)
     socket.broadcast.emit('checkOnlineStatus')
@@ -344,26 +346,91 @@ io.on('connection', socket => {
 
     })
 
-    socket.on('sendFile', async ({ room_id, user_id, files }) => {
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i]
-            let fileName = `${new Date().getTime()}-${file.name.split(' ').join('_')}`
+    socket.on('joinRoom', ({ room_id, notif }) => {
+        if(!socket.rooms.has(`room:${room_id}`)) {
+            socket.join(`room:${room_id}`)
+            io.to(`room:${room_id}`).emit('notif', notif)
+        }
+    })
 
-            fs.writeFileSync(`public/${fileName}`, file.file)
-            const message = await RoomMessage.create({ 
-                room_id, 
-                user_id, 
-                type: 'file',
-            })
+    socket.on('updateOnlineStatus', (data) => {
+        io.emit('updateOnlineStatus', data)
+    })
 
-            await RoomMessageFile.create({
-                message_id: message.id,
-                name: file.name,
-                path: fileName,
-                type: file.typeFile
+    socket.on('file:create', ({ room_id, user_id, indexFile, name, type, totalSize }) => {
+        const path = `${new Date().getTime()}-${name.split(' ').join('_')}`
+        fs.writeFile(`public/${path}`, '', (err) => {
+            const data = {
+                room_id,
+                user_id,
+                indexFile,
+                name,
+                path,
+                type,
+                sizeWrote: 0,
+                startWrote: 0,
+                endWrote: chunkSize,
+                totalSize,
+                errMessage: null
+            }
+
+            if (!err) {
+                io.to(socket.id).emit('file:resume', data)
+                io.to(socket.id).emit('file:process', data)
+            } else {
+                data.errMessage = err
+                io.to(socket.id).emit('file:error', data)
+            }
+        })
+
+
+    })
+
+    socket.on('file:resume', (data) => {
+        const { buff, ...opts } = data
+        const { path, startWrote, endWrote, totalSize } = opts
+
+        if (startWrote < totalSize) {
+            fs.appendFile(`public/${path}`, buff, (err) => {
+                if (!err) {
+                    const appendByte = endWrote + chunkSize
+                    const endByte = appendByte >= totalSize ? totalSize : appendByte
+
+                    const newData = {
+                        ...opts,
+                        sizeWrote: endWrote,
+                        startWrote: endWrote,
+                        endWrote: endByte
+                    }
+
+                    io.to(socket.id).emit('file:resume', newData)
+                    io.to(socket.id).emit('file:process', newData)
+                } else {
+                    io.to(socket.id).emit('file:error', {
+                        ...opts,
+                        errMessage: err
+                    })
+                }
             })
+        } else {
+            io.to(socket.id).emit('file:finish', opts)
         }
 
+    })
+
+    socket.on('file:finish', async ({ room_id, user_id, name, type, path }) => {
+        const message = await RoomMessage.create({
+            room_id,
+            user_id,
+            type: 'file',
+        })
+
+        await RoomMessageFile.create({
+            message_id: message.id,
+            name,
+            path,
+            type
+        })
 
         const messages = await RoomMessage.findAll({
             include: [
@@ -412,17 +479,6 @@ io.on('connection', socket => {
                 notif
             })
         }
-    })
-
-    socket.on('joinRoom', ({ room_id, notif }) => {
-        if(!socket.rooms.has(`room:${room_id}`)) {
-            socket.join(`room:${room_id}`)
-            io.to(`room:${room_id}`).emit('notif', notif)
-        }
-    })
-
-    socket.on('updateOnlineStatus', (data) => {
-        io.emit('updateOnlineStatus', data)
     })
 
     socket.on('disconnect', () => { 
