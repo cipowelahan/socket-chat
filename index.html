@@ -55,31 +55,34 @@
 
                         <form action="" id="form-message">
                             <div class="mb-3">
-                                <label for="file">
-                                    <span class="btn btn-primary">
-                                        <i class="bi bi-upload"></i>
-                                        Upload File
-                                    </span>
-                                </label>
-                                <input type="file" id="file" class="inputfile" multiple>
+                                <div id="file-upload">
+                                    <label for="file">
+                                        <span class="btn btn-primary">
+                                            <i class="bi bi-upload"></i>
+                                            Upload File
+                                        </span>
+                                    </label>
+                                    <input type="file" id="file" class="inputfile" multiple>
+                                </div>
+                                <div id="file-uploading" style="display: none;">
+                                    <div class="d-flex justify-content-center">
+                                        <div class="spinner-border" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-center">
+                                        Uploading
+                                        <br>
+                                        <span id="file-uploading-write"></span>
+                                    </div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <textarea class="form-control" rows="2" id="message" required></textarea>
                                 <span class="small">Press Enter to send</span>
                             </div>
                         </form>
-                        <div id="file-uploading" style="display: none;">
-                            <div class="d-flex justify-content-center">
-                                <div class="spinner-border" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                            <div class="text-center">
-                                Uploading
-                                <br>
-                                <span id="file-uploading-write"></span>
-                            </div>
-                        </div>
+                        
 
                     </div>
                 </div>
@@ -130,10 +133,10 @@
 
         function uploading(bool) {
             if (bool) {
-                $('#form-message').hide()
+                $('#file-upload').hide()
                 $('#file-uploading').show()
             } else {
-                $('#form-message').show()
+                $('#file-upload').show()
                 $('#file-uploading').hide()
             }
         }
@@ -281,6 +284,8 @@
                 let writeUpload = `${data.sizeWrote} / ${data.totalSize}`
                 console.log(writeUpload)
                 $('#file-uploading-write').html(`
+                    ${indexFile+1} / ${files.length}
+                    <br>
                     ${data.name}
                     <br>
                     ${writeUpload}
