@@ -76,6 +76,8 @@
                             </div>
                             <div class="text-center">
                                 Uploading
+                                <br>
+                                <span id="file-uploading-write"></span>
                             </div>
                         </div>
 
@@ -276,7 +278,13 @@
             })
 
             socket.on('file:process', function(data) {
-                console.log(`${data.sizeWrote} / ${data.totalSize}`)
+                let writeUpload = `${data.sizeWrote} / ${data.totalSize}`
+                console.log(writeUpload)
+                $('#file-uploading-write').html(`
+                    ${data.name}
+                    <br>
+                    ${writeUpload}
+                `)
             })
 
             socket.on('file:finish', function(data) {
@@ -295,6 +303,7 @@
 
             socket.on('file:error', function(data) {
                 console.log('ERROR UPLOAD ON: ', data)
+                alert(data.errMessage)
                 files = null
                 $('#file').val(null)
                 uploading(false)

@@ -463,7 +463,7 @@ io.on('connection', socket => {
         const notif = {
             user_id,
             head: user.username,
-            body: "gambar"
+            body: "new file"
         }
 
         io.to(`room:${room_id}`).emit('getMessages', { room_id: room_id, messages })
