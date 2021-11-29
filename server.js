@@ -303,10 +303,16 @@ io.on('connection', socket => {
         await RoomMessage.create({ room_id, user_id, message })
 
         const messages = await RoomMessage.findAll({
-            include: {
-                model: User,
-                as: 'user'
-            },
+            include: [
+                {
+                    model: User,
+                    as: 'user'
+                },
+                {
+                    model: RoomMessageFile,
+                    as: 'file'
+                }
+            ],
             where: {
                 room_id: room_id
             }
