@@ -24,6 +24,8 @@
 </head>
 <body>
     <div class="container-fluid">
+        please allow notification and audio
+        <hr>
         <br>
         <div class="row" id="row-username" style="display: none;">
             <div class="col-sm-12">
@@ -141,11 +143,17 @@
             }
         }
 
+        function playSoundNotif() {
+            const audio = new Audio('notification.wav');
+            audio.play();
+        }
+
         function notifyMe(head, body) {
             if (!("Notification" in window)) {
                 alert("This browser does not support desktop notification");
             }
             else if (Notification.permission === "granted") {
+                playSoundNotif()
                 var notification = new Notification(head, {
                     body
                 });
@@ -153,6 +161,7 @@
             else if (Notification.permission !== "denied") {
                 Notification.requestPermission().then(function (permission) {
                     if (permission === "granted") {
+                        playSoundNotif()
                         var notification = new Notification(head, {
                             body
                         });
@@ -163,6 +172,7 @@
 
         $(function() {
             socket = io()
+            notifyMe('Welcome', '')
 
             $('#row-username').show()
 
@@ -185,21 +195,13 @@
             $('#form-message').submit(function(e) {
                 e.preventDefault()
 
-                let messageToSend = $($('#message').val()).text()
-
-                if (messageToSend !== '') {
-                    var data = {
-                        room_id: room,
-                        user_id: user.id,
-                        message: messageToSend
-                    }
-    
-                    socket.emit('sendMessage', data)
-                    $('#message').val('')
-                } else {
-                    alert('Silahkan isi pesan')
+                var data = {
+                    room_id: room,
+                    user_id: user.id,
+                    message: $('#message').val()
                 }
-                
+
+                socket.emit('sendMessage', data)
             })
 
             $('#file').on('change', function(e) {
