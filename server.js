@@ -324,10 +324,11 @@ io.on('connection', socket => {
             }
         })
 
+        const notifMessage = message.replace(/<br\s*[\/]?>/g, ' ')
         const notif = {
             user_id,
             head: user.username,
-            body: message
+            body: notifMessage.substring(0, 15) + (notifMessage.length > 15 ? '...' : '')
         }
 
         io.to(`room:${room_id}`).emit('getMessages', { room_id: room_id, messages })
